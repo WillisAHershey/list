@@ -2,6 +2,9 @@
 
 #include <stdlib.h>
 
+#ifdef THREAD_SAFE
+#include <semaphore.h>
+#endif
 //This file defines two generic list structures, queue_t and stack_t, which are customizable to hold any data type, and are configured at compiletime
 
 //To use, define the following macros before this file is included in some other file. (This file will not compile on its own)
@@ -21,6 +24,11 @@
 
 //LISTTYPE and INVALID_LISTTYPE will be undefined at the end of this file, and will therefore be unavailable in your code after #include "list.h"
 //(This is helpful if you want to include it several times) LIST_SUCCESS, LIST_FAILURE, and LISTTYPE_FAILURE will remain defined so they can be used for error checking
+
+//If multiple threads will be accessing the same stack or queue at the same time, define THREAD_SAFE, and this file will automatically implement mutex through semaphores
+//The functions queueNotEmpty and stackNotEmpty are not thread safe, even with flag, as they lose meaning in multi-threading models.
+//freeQueue and freeStack are also not thread safe, the programmer must ensure all threads have finished accessing the lists before freeing the associated memory.
+
 
 //FOR EXAMPLE, if you want to have a list of ints and you want -1 to be indicative of invalid input AND error, you might code the following:
 //
@@ -115,10 +123,16 @@ typedef struct listNode{ //List node for both queue and stack
 typedef struct queue{ //Queue struct
   listNode_t *head;
   listNode_t *tail;
+#ifdef THREAD_SAFE
+  sem_t *turn;
+#endif
 }queue_t;
 
 typedef struct stack{ //Stack struct
   listNode_t *top;
+#ifdef THREAD_SAFE
+  sem_t *turn;
+#endif
 }stack_t;
 
 queue_t* newQueue(){ //Returns pointer to empty fifo queue. Returns NULL on error
@@ -127,6 +141,9 @@ queue_t* newQueue(){ //Returns pointer to empty fifo queue. Returns NULL on erro
 	return NULL;
   out->head=NULL;
   out->tail=NULL;
+#ifdef THREAD_SAFE
+  out->turn=sem_init(&out->turn,0,1);
+#endif
   return out;
 }
 
@@ -138,27 +155,51 @@ int queueAdd(queue_t *queue,LISTTYPE new){ //Adds LISTTYPE to valid queue. retur
 	return LIST_FAILURE;
   hold->next=NULL;
   hold->data=new;
+#ifdef THREAD_SAFE
+  sem_wait(&queue->turn);
+#endif
   if(queue->tail){
 	queue->tail->next=hold;
 	queue->tail=hold;
   }
   else
 	queue->head=queue->tail=hold;
+#ifdef THREAD_SAFE
+  sem_post(&queue->turn);
+#endif
   return LIST_SUCCESS;
 }
 
 LISTTYPE queueRemove(queue_t *queue){ //Returns LISTTYPE at head of queue and removes it from queue, returns LISTTYPE_FAILURE on failure
+#ifdef THREAD_SAFE
+  if(!queue)
+#else
   if(!queue||!queue->head)
+#endif
 #ifdef EXIT_ON_ERROR
 	exit(1);
 #else
 	return LISTTYPE_FAILURE;
+#endif
+#ifdef THREAD_SAFE
+  sem_wait(&queue->turn);
+  if(!queue->head){
+	  sem_post(&queue->turn);
+#ifdef EXIT_ON_ERROR
+	  exit(1);
+#else
+  	return LISTTYPE_FAILURE;
+#endif
+  }
 #endif
   LISTTYPE out=queue->head->data;
   listNode_t *pt=queue->head;
   queue->head=pt->next;
   if(!queue->head)
 	queue->tail=NULL;
+#ifdef THREAD_SAFE
+  sem_post(&queue->turn);
+#endif
   free(pt);
   return out;
 }
@@ -187,6 +228,9 @@ stack_t* newStack(){ //Returns pointer to new empty filo stack. Returns NULL on 
   if(!out)
 	return NULL;
   out->top=NULL;
+#ifdef THREAD_SAFE
+  sem_init(&out->turn,0,1);
+#endif
   return out;
 }
 
@@ -197,22 +241,46 @@ int stackPush(stack_t *stack,LISTTYPE new){ //Pushes a LISTTYPE onto valid stack
   if(!node)
 	return LIST_FAILURE;
   node->data=new;
+#ifdef THREAD_SAFE
+  sem_wait(&stack->turn);
+#endif
   node->next=stack->top;
   stack->top=node;
+#ifdef THREAD_SAFE
+  sem_post(&stack->turn);
+#endif
   return LIST_SUCCESS;
 }
 
 LISTTYPE stackPop(stack_t *stack){ //Returns LISTTYPE on top of the stack, and pops it from the stack. Returns LISTTYPE_FAILURE on failure
+#ifdef THREAD_SAFE
+  if(!stack)
+#else
   if(!stack||!stack->top)
+#endif
 #ifdef EXIT_ON_ERROR
 	exit(1);
 #else
 	return LISTTYPE_FAILURE;
 #endif
+#ifdef THREAD_SAFE
+  sem_wait(&stack->turn);
+  if(!stack->top){
+	  sem_post(&stack->turn);
+#ifdef EXIT_ON_ERROR
+	  exit(1);
+#else
+	  return LISTTYPE_FAILURE;
+#endif
+  }
+#endif
   listNode_t *pt=stack->top->next;
   LISTTYPE out=stack->top->data;
   free(stack->top);
   stack->top=pt;
+#ifdef THREAD_SAFE
+  sem_post(&stack->turn);
+#endif
   return out;
 }
 
