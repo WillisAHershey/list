@@ -103,6 +103,9 @@
 #ifndef LIST_FAILURE
 	#define LIST_FAILURE 0
 #endif
+#ifndef LISTTYPE_FAILURE
+	#define EXIT_ON_ERROR
+#endif
 
 typedef struct listNode{ //List node for both queue and stack
   LISTTYPE data;
@@ -160,6 +163,12 @@ LISTTYPE queueRemove(queue_t *queue){ //Returns LISTTYPE at head of queue and re
   return out;
 }
 
+int queueNotEmpty(queue_t *queue){ //Returns 1 if there is an element in the queue, 0 on error and otherwise
+  if(!queue||!queue->head)
+	return 0;
+  return 1;
+}
+
 int freeQueue(queue_t *queue){ //Frees memory associated with the queue. Access to any data left in the queue will be lost. Returns LIST_SUCCESS/FAILURE
   if(!queue)
 	return LIST_FAILURE;
@@ -205,6 +214,12 @@ LISTTYPE stackPop(stack_t *stack){ //Returns LISTTYPE on top of the stack, and p
   free(stack->top);
   stack->top=pt;
   return out;
+}
+
+int stackNotEmpty(stack_t *stack){ //Returns 1 if there is an element on the stack, returns 0 on error and otherwise
+  if(!stack||!stack->top)
+	return 0;
+  return 1;
 }
 
 int freeStack(stack_t *stack){ //Frees memory associated with stack. Access to any data left in the stack will be lost. Returns LIST_SUCCESS/FAILURE
