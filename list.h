@@ -101,6 +101,49 @@ int queueRemove(queue_t *queue,LISTTYPE *put){ //Places LISTTYPE from head of qu
   return LIST_SUCCESS; //And return success
 }
 
+int queueRemoveValue(queue_t *queue,LISTTYPE value){ //Removes the first instance of a particular value from a valid stack. Returns LIST_SUCCESS/FAILURE
+  if(!queue||(INVALID_LISTTYPE(value))){ //If NULL queue pointer or invalid LISTTYPE value
+	return LIST_FAILURE; //Return failure
+  }
+  wait(&queue->turn); //(This only does something in THREAD_SAFE mode. See the macro definition of wait(c))
+  if(!queue->head){ //If the queue's head is NULL, then the queue is empty
+	post(&queue->turn); //(This only does something in THREAD_SAFE mode. See the macro definition of post(c))
+	return LIST_FAILURE; //Return failure
+  }
+  listNode_t *pt=queue->head; //Save a pointer to the head of the queue
+  if(LISTTYPE_EQUAL(pt->data,value)){ //If the head of the queue contains the value we're loking for
+	queue->head=pt->next; //Point the queue's head at whatever is in its next pointer (either another node or NULL)
+	if(!pt->next) //If head is now NULL, then there are no elements
+		queue->tail=NULL; //So set tail to NULL too
+	post(&queue->turn); //(This only does something in THREAD_SAFE mode. See the macro definition of post(c))
+	free(pt); //Free memory associated with the old head
+	return LIST_SUCCESS; //And return success
+  }
+  listNode_t *run=pt; //Otherwise, create a pointer that will trail behind pt, so we can link the list back together if and when we remove a node
+  if(!pt->next){ //If pt points to NULL, then this queue has 1 element, and we already checked it
+	post(&queue->turn); //(This only does something in THREAD_SAFE mode. See the macro definition of post(c))
+	return LIST_FAILURE; //Return failure
+  }
+  for(pt=pt->next;pt!=queue->tail;pt=pt->next){ //So for every node in the queue that is not the head or the tail
+	if(LISTTYPE_EQUAL(pt->data,value)){ //If we find a node that is equal to the value we're looking for
+		run->next=pt->next; //Point the node behind the one we found to whatever comes after (either another node or NULL)
+		post(&queue->turn); //(This only does something in THREAD_SAFE mode. See the macro definition of post(c))
+		free(pt); //Free the memory associated with the node
+		return LIST_SUCCESS; //And return success
+	}
+	run=pt;
+  }
+  if(LISTTYPE_EQUAL(pt->data,value)){ //If the first instance of the value we're looking for is in the tail
+	queue->tail=run; //Set the tail to the node right before the tail
+	run->next=NULL; //NULL terminate the new tail
+	post(&queue->turn); //(This only does something in THREAD_SAFE mode. See the macro definition of post(c))
+	free(pt); //Free the memory associated with the old tail
+	return LIST_SUCCESS; //And return success
+  } //If control makes it to here, then the value we're looking for is not present in the queue
+  post(&queue->turn); //(This only does something in THREAD_SAFE mode. See the macro definition of post(c))
+  return LIST_FAILURE; //Return failure
+}
+
 int freeQueue(queue_t *queue){ //Frees memory associated with the queue. Access to any data left in the queue will be lost. Returns LIST_SUCCESS/FAILURE
   if(!queue) //If NULL queue pointer
 	return LIST_FAILURE; //Return failure
@@ -159,6 +202,36 @@ int stackPop(stack_t *stack,LISTTYPE *put){ //Returns LISTTYPE on top of the sta
   post(&stack->turn); //(This only does something in THREAD_SAFE mode. See the macro definition of post(c))
   free(pt); //Free the data from the old stack's top
   return LIST_SUCCESS; //And return success
+}
+
+int stackRemoveValue(stack_t *stack,LISTTYPE value){ //Removes the first instance of a particular value from a valid stack Returns LIST_SUCCESS/FAILURE
+  if(!stack||(INVALID_LISTTYPE(value))){ //If NULL queue pointer or invalid LISTTYPE value
+	return LIST_FAILURE; //Return failure
+  }
+  wait(&stack->turn); //(This only does something in THREAD_SAFE mode. See the macro definition of wait(c))
+  if(!stack->top){ //If the stack's top is NULL, then the stack is empty
+	post(&stack->turn); //(This only does something in THREAD_SAFE mode. See the macro definition of post(c))
+	return LIST_FAILURE; //Return failure
+  }
+  listNode_t *pt=stack->top; //Save a pointer to the head of the stack
+  if(LISTTYPE_EQUAL(pt->data,value)){ //If the top of the stack contains the value we're loking for
+	stack->top=pt->next; //Point the stack's top at whatever is in its next pointer (either another node or NULL)
+	post(&stack->turn); //(This only does something in THREAD_SAFE mode. See the macro definition of post(c))
+	free(pt); //Free memory associated with the old top
+	return LIST_SUCCESS; //And return success
+  }
+  listNode_t *run=pt; //Otherwise, create a pointer that will trail behind pt, so we can link the list back together if and when we remove a node
+  for(pt=pt->next;pt;pt=pt->next){ //So for every other node in the stack
+	if(LISTTYPE_EQUAL(pt->data,value)){ //If we find a node with a LISTTYPE equal to the value we're looking for
+		run->next=pt->next; //Point the node behind the one we found to whatever comes after (either another node or NULL)
+		post(&stack->turn); //(This only does something in THREAD_SAFE mode. See the macro definition of post(c))
+		free(pt); //Free the memory associated with the node
+		return LIST_SUCCESS; //And return success
+	}
+	run=pt;
+  } //If control makes it past this point, it means no element in the stack contains the value we're looking for
+  post(&stack->turn); //(This only does something in THREAD_SAFE mode. See the macro definition of post(c))
+  return LIST_FAILURE; //Return failure
 }
 
 int freeStack(stack_t *stack){ //Frees memory associated with stack. Access to any data left in the stack will be lost. Returns LIST_SUCCESS/FAILURE
