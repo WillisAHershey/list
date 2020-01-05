@@ -3,9 +3,8 @@
 #include <stdlib.h>
 
 #ifdef THREAD_SAFE
-#include <semaphore.h> //This will likely only compile in THREAD_SAFE mode if you ask your compiler to link the pthread libraries
+	#include <semaphore.h> //This will likely only compile in THREAD_SAFE mode if you ask your compiler to link the pthread libraries
 #endif
-
 #ifndef INVALID_LISTTYPE
 	#define INVALID_LISTTYPE(c) 0 //This is a boolean expression, so INVALID_LISTTYPE defaults to 'all values are valid'
 #endif
@@ -54,7 +53,7 @@ queue_t* newQueue(){ //Returns pointer to empty fifo queue. Returns NULL on erro
   queue_t *out=(queue_t*)malloc(sizeof(queue_t)); 
   if(!out) //if malloc failure
 	return NULL; //return NULL
-  out->head=NULL; //set head and tail to NULL, to represent empty queue
+  out->head=NULL; //set head and tail to NULL, to indicate empty queue
   out->tail=NULL;
 #ifdef THREAD_SAFE
   if(sem_init(&out->turn,0,1)==-1){ //In thread safe mode, initialize the semaphore to 1
@@ -93,10 +92,10 @@ int queueRemove(queue_t *queue,LISTTYPE *put){ //Places LISTTYPE from head of qu
 	return LIST_FAILURE; //Return failure
   }
   *put=queue->head->data; //Save the value at the head of the queue at the pointer address from input
-  listNode_t *pt=queue->head; //Save the value of the current head (because we'll have to free the memory in a moment)
+  listNode_t *pt=queue->head; //Save a pointer to the current head (because we'll have to free the memory in a moment)
   queue->head=pt->next; //Set head to whatever the old head was pointing to (either another node or NULL)
   if(!queue->head) //If head has become null, it means this queue has no more elements
-  	  queue->tail=NULL; //so set tail to null too
+	queue->tail=NULL; //so set tail to null too
   post(&queue->turn); //(This only does something in THREAD_SAFE mode. See the macro definition of post(c))
   free(pt); //Free the data from the old head
   return LIST_SUCCESS; //And return success
@@ -149,10 +148,14 @@ int stackPush(stack_t *stack,LISTTYPE n){ //Pushes a LISTTYPE onto valid stack. 
 int stackPop(stack_t *stack,LISTTYPE *put){ //Returns LISTTYPE on top of the stack, and pops it from the stack. Returns LISTTYPE_FAILURE on failure
   if(!stack||!put) //If NULL stack pointer, or NULL LISTTYPE pointer
 	return LIST_FAILURE; //Return failure
-  wait(&stack->turn); //(This only does something in THREAD_SAFE mode. see the macro definition of wait(c))
-  listNode_t *pt=stack->top; //Make a pointer to the current top of the stack
-  *put=pt->data; //Store the data from the current top at the address from input
-  stack->top=pt->next; //Make the stack's top point to whatever the old top was pointing to (Either another node or NULL)
+  wait(&stack->turn); //(This only does something in THREAD_SAFE mode. See the macro definition of wait(c))
+  if(!stack->top){ //If the stack's top is NULL
+	post(&stack->turn); //(This only does something in THREAD_SAFE mode. See the macro definition of post(c))
+	return LIST_FAILURE; //Return failure
+  }
+  *put=stack->top->data; //Store the data from the current top at the address from input
+  listNode_t *pt=stack->top; //Save a pointer to the current top (because we'll have to free the memory in a moment)
+  stack->top=pt->next; //Make the stack's top point to whatever the old top was pointing to (either another node or NULL)
   post(&stack->turn); //(This only does something in THREAD_SAFE mode. See the macro definition of post(c))
   free(pt); //Free the data from the old stack's top
   return LIST_SUCCESS; //And return success
@@ -177,6 +180,3 @@ int freeStack(stack_t *stack){ //Frees memory associated with stack. Access to a
 #ifdef __cplusplus
 }
 #endif
-
-#undef LISTTYPE
-#undef INVALID_LISTTYPE
