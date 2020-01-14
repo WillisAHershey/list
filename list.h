@@ -20,7 +20,10 @@
 	#define LIST_FAILURE 0
 #endif
 #ifndef SIZEOF_LISTNODE_T
-	#define SIZEOF_LISTNODE_T sizeof(listNode_t)
+	#define SIZEOF_LISTNODE_T(c) sizeof(listNode_t)
+#endif
+#ifndef LISTTYPE_ASSIGN
+	#define LISTTYPE_ASSIGN(a,b) a=b
 #endif
 #if !defined INCLUDE_QUEUE && !defined INCLUDE_STACK
 	#define INCLUDE_QUEUE
@@ -49,29 +52,26 @@ typedef struct queue{ //Queue struct
 #endif
 }queue_t;
 
-queue_t* newQueue(){ //Returns pointer to empty fifo queue. Returns NULL on error
-  queue_t *out=(queue_t*)malloc(sizeof(queue_t)); 
-  if(!out) //If malloc failure
-	return NULL; //Return NULL
-  out->head=NULL; //Set head and tail to NULL, to indicate empty queue
-  out->tail=NULL;
+int queueInit(queue_t *queue){ //Initializes queue at given address. Returns LIST_SUCCESS on success, and LIST_FAILURE on failure
+  if(!queue)
+	return LIST_FAILURE;
+  queue->head=NULL; //Set head and tail to NULL, to indicate empty queue
+  queue->tail=NULL;
 #ifdef THREAD_SAFE
-  if(sem_init(&out->turn,0,1)==-1){ //In thread safe mode, initialize the semaphore to 1
-	free(out); //If initialization fails, free malloced data
-	return NULL; //And return NULL
-  }
+  if(sem_init(&queue->turn,0,1)==-1) //In thread safe mode, initialize the semaphore to 1
+	return LIST_FAILURE;
 #endif
-  return out; //But if everything succeeds, return a pointer to the malloced queue
+  return LIST_SUCCESS; //But if everything succeeds, return success
 }
 
 int queueAdd(queue_t *queue,LISTTYPE n){ //Adds valid LISTTYPE to valid queue. returns LIST_SUCCESS on success, and LIST_FAILURE on failure
   if(!queue||(INVALID_LISTTYPE(n))) //If NULL queue pointer or invalid LISTTYPE value
 	return LIST_FAILURE; //Return failure
-  listNode_t *hold=(listNode_t*)malloc(SIZEOF_LISTNODE_T); //Malloc space for a new node
+  listNode_t *hold=(listNode_t*)malloc(SIZEOF_LISTNODE_T(n)); //Malloc space for a new node
   if(!hold) //If malloc failure
 	return LIST_FAILURE; //Return failure
   hold->next=NULL; //This will be the new end of the list so the next pointer must be null
-  hold->data=n; //Put the data in the node
+  LISTTYPE_ASSIGN(hold->data,n); //Put the data in the node
   wait(&queue->turn); //(This only does something in THREAD_SAFE mode. See macro definition of wait(c))
   if(queue->tail){ //If the queue already has a tail
 	queue->tail->next=hold; //Then connect the current tail to this new node
@@ -92,7 +92,7 @@ int queueRemove(queue_t *queue,LISTTYPE *put){ //Places LISTTYPE from head of qu
 	return LIST_FAILURE; //Return failure
   }
   if(put) //If address is not NULL
-	*put=queue->head->data; //Save the value at the head of the queue at the pointer address from input
+	LISTTYPE_ASSIGN(*put,queue->head->data); //Save the value at the head of the queue at the pointer address from input
   listNode_t *pt=queue->head; //Save a pointer to the current head (because we'll have to free the memory in a moment)
   queue->head=pt->next; //Set head to whatever the old head was pointing to (either another node or NULL)
   if(!queue->head) //If head has become null, it means this queue has no more elements
@@ -102,7 +102,7 @@ int queueRemove(queue_t *queue,LISTTYPE *put){ //Places LISTTYPE from head of qu
   return LIST_SUCCESS; //And return success
 }
 
-int freeQueue(queue_t *queue){ //Frees memory associated with the queue. Access to any data left in the queue will be lost. Returns LIST_SUCCESS/FAILURE
+int queueDestroy(queue_t *queue){ //Frees memory associated with the queue. Access to any data left in the queue will be lost. Returns LIST_SUCCESS/FAILURE
   if(!queue) //If NULL queue pointer
 	return LIST_FAILURE; //Return failure
   listNode_t *pt,*hold; //We access the data in the queue without using the mutex, so all other threads must finish before this function is called
@@ -113,7 +113,6 @@ int freeQueue(queue_t *queue){ //Frees memory associated with the queue. Access 
 #ifdef THREAD_SAFE
   sem_destroy(&queue->turn); //In THREAD_SAFE mode, make sure to destroy the semaphore, lest there be some memory leak in your system's implementation
 #endif
-  free(queue); //Free memory associated with the queue itself
   return LIST_SUCCESS; //And return success
 }
 
@@ -220,27 +219,24 @@ typedef struct stack{ //Stack struct
 #endif
 }stack_t;
 
-stack_t* newStack(){ //Returns pointer to new empty filo stack. Returns NULL on failure
-  stack_t *out=(stack_t*)malloc(sizeof(stack_t)); //Malloc space for stack
-  if(!out) //If malloc failure
-	return NULL; //Return NULL
-  out->top=NULL; //Set the top pointer to NULL to indicate empty stack
+int stackInit(stack_t *stack){ //Initializes filo stack at given address. Returns LIST_SUCCESS on success, and LIST_FAILURE on failure
+  if(!stack)
+	return LIST_FAILURE; //Return NULL
+  stack->top=NULL; //Set the top pointer to NULL to indicate empty stack
 #ifdef THREAD_SAFE
-  if(sem_init(&out->turn,0,1)==-1){ //In THREAD_SAFE mode, initialize the semaphore to 1 to implement mutex
-	free(out); //If the initialization fails, free the malloced data
-	return NULL; //And return NULL
-  }
+  if(sem_init(&out->turn,0,1)==-1) //In THREAD_SAFE mode, initialize the semaphore to 1 to implement mutex
+	return LIST_FAILURE;
 #endif
-  return out; //But if everything succeeds, return a pointer to the malloced stack
+  return LIST_SUCCESS; //But if everything succeeds, return a pointer to the malloced stack
 }
 
 int stackPush(stack_t *stack,LISTTYPE n){ //Pushes valid LISTTYPE onto valid stack. Returns LIST_SUCCESS on success, and LIST_FAILURE on failure
   if(!stack||(INVALID_LISTTYPE(n))) //If NULL stack pointer, or invalid LISTTYPE value
 	return LIST_FAILURE; //Return failure
-  listNode_t *hold=(listNode_t*)malloc(SIZEOF_LISTNODE_T); //Malloc space for new node
+  listNode_t *hold=(listNode_t*)malloc(SIZEOF_LISTNODE_T(n)); //Malloc space for new node
   if(!hold) //If malloc failure
 	return LIST_FAILURE; //Return failure
-  hold->data=n; //Store the LISTTYPE value in the new node
+  LISTTYPE_ASSIGN(hold->data,n); //Store the LISTTYPE value in the new node
   wait(&stack->turn); //(This only does something in THREAD_SAFE mode. See macro definition of wait(c))
   hold->next=stack->top; //Make the new node points to whatever the old top of the stack was (either another node or NULL)
   stack->top=hold; //Make the stack's top point to this new node
@@ -257,7 +253,7 @@ int stackPop(stack_t *stack,LISTTYPE *put){ //Pops LISTTYPE from top of the stac
 	return LIST_FAILURE; //Return failure
   }
   if(put) //If address is not NULL
-  	*put=stack->top->data; //Store the data from the current top at the address from input
+  	LISTTYPE_ASSIGN(*put,stack->top->data); //Store the data from the current top at the address from input
   listNode_t *pt=stack->top; //Save a pointer to the current top (because we'll have to free the memory in a moment)
   stack->top=pt->next; //Make the stack's top point to whatever the old top was pointing to (either another node or NULL)
   post(&stack->turn); //(This only does something in THREAD_SAFE mode. See the macro definition of post(c))
@@ -265,7 +261,7 @@ int stackPop(stack_t *stack,LISTTYPE *put){ //Pops LISTTYPE from top of the stac
   return LIST_SUCCESS; //And return success
 }
 
-int freeStack(stack_t *stack){ //Frees memory associated with stack. Access to any data left in the stack will be lost. Returns LIST_SUCCESS/FAILURE
+int stackDestroy(stack_t *stack){ //Frees memory associated with stack. Access to any data left in the stack will be lost. Returns LIST_SUCCESS/FAILURE
   if(!stack) //If NULL stack pointer
 	return LIST_FAILURE; //Return failure
   listNode_t *pt,*hold; //We access the stack's data without mutex, so all other threads must finish before this function is called
@@ -276,7 +272,6 @@ int freeStack(stack_t *stack){ //Frees memory associated with stack. Access to a
 #ifdef THREAD_SAFE
   sem_destroy(&stack->turn); //In THREAD_SAFE mode, make sure to destroy the semaphore, lest there be some memory leak in your system's implementation
 #endif
-  free(stack); //Free memory associated with the stack itself
   return LIST_SUCCESS; //And return success
 }
 
