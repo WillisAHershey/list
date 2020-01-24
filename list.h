@@ -265,7 +265,7 @@ int stackInit(stack_t *stack){ //Initializes filo stack at given address. Return
   stack->top=NULL;
 #ifdef THREAD_SAFE
   //Initialize the mutex semaphore (return failure if initialization fails)
-  if(sem_init(&out->turn,0,1)==-1)
+  if(sem_init(stack->turn,0,1)==-1)
 	return LIST_FAILURE;
 #endif
   return LIST_SUCCESS;
