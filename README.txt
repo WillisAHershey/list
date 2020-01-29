@@ -1,6 +1,6 @@
 Willis A. Hershey
 
-This file defines two generic list structures, queue_t and stack_t, which are customizable to hold any data type, and are configured at compiletime (hence no list.c).
+This file defines two generic list structures, queue_t and stack_t, which are customizable to hold any data type, and are configured at compiletime (hence no list.h).
 
 queue_t is a first-in-first-out list structure. Initialize a queue_t with queueInit(queue_t*), add to it with queueAdd(queue_t*,LISTTYPE), and remove from it with queueRemove(queue_t*,LISTTYPE*). Destroy the queue and anything in it with queueDestroy(queue_t*).
 
