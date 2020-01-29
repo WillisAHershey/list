@@ -41,7 +41,7 @@ int queueRemoveAll(queue_t*,LISTTYPE)/int stackRemoveAll(stack_t*,LISTTYPE) remo
 Example usage:
 
 #define LISTTYPE int
-#include "list.h"
+#include "list.c"
 queue_t queue;
 queueInit(&queue);
 queueAdd(&queue,3);
@@ -59,7 +59,7 @@ typedef struct bogus{
 
 #define LISTTYPE bogus_t
 #define LISTTYPE_EQUALS(a,b) a.i==b.i&&a.f==b.f&&a.p==b.p
-#include "list.h"
+#include "list.c"
 stack_t stack;
 stackInit(&stack);
 bogus_t a;
@@ -74,6 +74,6 @@ ___________________________________________
 #define LIST_SUCCESS 0
 #define LIST_FAILURE -1
 #define THREAD_SAFE
-#include "list.h"
+#include "list.c"
 etc...
 ___________________________________________
