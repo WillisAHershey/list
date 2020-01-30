@@ -3,26 +3,34 @@
 #include <stdlib.h>
 
 #ifdef THREAD_SAFE
-	#include <semaphore.h> //This will likely only compile in THREAD_SAFE mode if you ask your compiler to link the pthread libraries
-	#define wait(c) sem_wait(c) //Every thread-safe function will wait() before accessing listNode_t pointers
-	#define post(c) sem_post(c) //And post() after it has finished reading/updating them. In THREAD_SAFE mode, semaphore.h functions are invoked
+ //This will likely only compile in THREAD_SAFE mode if you ask your compiler to link the pthread libraries
+	#include <semaphore.h>
+//wait will be called before accessing pointers in the list structure and post will be called once mischief is managed in every thread-safe function
+	#define wait(c) sem_wait(c)
+	#define post(c) sem_post(c)
 #else
-	#define wait(c) {} //But outside of THREAD_SAFE mode, these calls become nops, and are removed in the preprocessor stage of compilation
+//But outside of THREAD_SAFE mode, these calls do nothing and should be optimized out by the compiler
+	#define wait(c) {}
 	#define post(c) {}
 #endif
 #ifndef INVALID_LISTTYPE
-	#define INVALID_LISTTYPE(c) 0 //This is a boolean expression, so INVALID_LISTTYPE defaults to 'all values are valid'
+//INVALID_LISTTYPR is a boolean expression, and it defaults to zero, as in 'No. This LISTTYPE is not invalid'. Default value will most likely be optimized out
+	#define INVALID_LISTTYPE(c) 0
 #endif
 #ifndef LIST_SUCCESS
-	#define LIST_SUCCESS 1 //Default values for LIST_SUCCESS and LIST_FAILURE are 1 and 0 respectively. These can be overwritten to any integer value without problem
-#endif                          //but it's probably best if they are not the same
+//Default values for LIST_SUCCESS and LIST_FAILURE are 1 and 0 respectively, but these can be defined as any other integer value
+//...but it's probably for the best if these values are not the same
+	#define LIST_SUCCESS 1
+#endif
 #ifndef LIST_FAILURE
 	#define LIST_FAILURE 0
 #endif
 #ifndef SIZEOF_LISTNODE_T
+//This allows the user to customize the amount of space their LISTTYPE takes up
 	#define SIZEOF_LISTNODE_T(c) sizeof(listNode_t)
 #endif
 #ifndef LISTTYPE_ASSIGN
+//This allows the user to define how the data is to be stored in the nodes and also removed from the list
 	#define LISTTYPE_ASSIGN(a,b) a=b
 #endif
 #if !defined INCLUDE_QUEUE && !defined INCLUDE_STACK
@@ -68,7 +76,7 @@ int queueInit(queue_t *queue){ //Initializes queue at given address. Returns LIS
 	return LIST_FAILURE;
 #endif
   //And return success
-  return LIST_SUCCESS; //But if everything succeeds, return success
+  return LIST_SUCCESS;
 }
 
 int queueAdd(queue_t *queue,LISTTYPE n){ //Adds valid LISTTYPE to valid queue. returns LIST_SUCCESS on success, and LIST_FAILURE on failure
