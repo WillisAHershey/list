@@ -14,7 +14,7 @@
 	#define post(c) {}
 #endif
 #ifndef INVALID_LISTTYPE
-//INVALID_LISTTYPR is a boolean expression, and it defaults to zero, as in 'No. This LISTTYPE is not invalid'. Default value will most likely be optimized out
+//INVALID_LISTTYPE is a boolean expression, and it defaults to zero, as in 'No. This LISTTYPE is not invalid'. Default value should be optimized out
 	#define INVALID_LISTTYPE(c) 0
 #endif
 #ifndef LIST_SUCCESS
@@ -39,9 +39,11 @@
 	#define INCLUDE_SEARCH_FUNCTIONS
 #endif
 #if defined INCLUDE_SEARCH_FUNCTIONS && !defined LISTTYPE_EQUAL
+//LISTTYPE_EQUAL() must be defined manually by the programer if LISTTYPE is some sort of struct, as direct equivalence is likely not supported by the compiler
 	#define LISTTYPE_EQUAL(a,b) a==b
 #endif
 #ifdef __cplusplus
+//Although C++ is garbage, I will allow you to use my beautiful C code in your hideous C++ code. You're welcome.
 extern "C" {
 #endif
 
