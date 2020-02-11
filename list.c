@@ -43,7 +43,7 @@
 	#define LISTTYPE_EQUAL(a,b) a==b
 #endif
 #ifdef __cplusplus
-//Although C++ is garbage, I will allow you to use my beautiful C code in your hideous C++ code. You're welcome.
+//Although C++ is garbage, I will allow you to use this file as C++ code. You're welcome
 extern "C" {
 #endif
 
