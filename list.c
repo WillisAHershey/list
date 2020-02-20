@@ -1,47 +1,47 @@
 //Willis Hershey wrote this whole damned thing and it is broken and beautiful someone please give him a job
-//Last updated February 11th, 2020
+//Last updated February 20th, 2020
 
 #include <stdlib.h>
 
 #ifdef THREAD_SAFE
 //This will likely only compile in THREAD_SAFE mode if you ask your compiler to link the pthread libraries
-	#include <semaphore.h>
+#	include <semaphore.h>
 //wait will be called before accessing pointers in the list structure and post will be called once mischief is managed in every thread-safe function
-	#define wait(c) sem_wait(c)
-	#define post(c) sem_post(c)
+#	define wait(c) sem_wait(c)
+#	define post(c) sem_post(c)
 #else
 //But outside of THREAD_SAFE mode, these calls do nothing and should be optimized out by the compiler
-	#define wait(c) {}
-	#define post(c) {}
+#	define wait(c) {}
+#	define post(c) {}
 #endif
 #ifndef INVALID_LISTTYPE
 //INVALID_LISTTYPE is a boolean expression, and it defaults to zero, as in 'No. This LISTTYPE is not invalid'. Default value should be optimized out
-	#define INVALID_LISTTYPE(c) 0
+#	define INVALID_LISTTYPE(c) 0
 #endif
 #ifndef LIST_SUCCESS
 //Default values for LIST_SUCCESS and LIST_FAILURE are 1 and 0 respectively, but these can be defined as any other integer value
 //...but it's probably for the best if these values are not the same
-	#define LIST_SUCCESS 1
+#	define LIST_SUCCESS 1
 #endif
 #ifndef LIST_FAILURE
-	#define LIST_FAILURE 0
+#	define LIST_FAILURE 0
 #endif
 #ifndef SIZEOF_LISTNODE_T
 //This allows the user to customize the amount of space their LISTTYPE takes up
-	#define SIZEOF_LISTNODE_T(c) sizeof(listNode_t)
+#	define SIZEOF_LISTNODE_T(c) sizeof(listNode_t)
 #endif
 #ifndef LISTTYPE_ASSIGN
 //This allows the user to define how the data is to be stored in the nodes and also removed from the list
-	#define LISTTYPE_ASSIGN(a,b) a=b
+#	define LISTTYPE_ASSIGN(a,b) a=b
 #endif
 #if !defined INCLUDE_QUEUE && !defined INCLUDE_STACK
-	#define INCLUDE_QUEUE
-	#define INCLUDE_STACK
-	#define INCLUDE_SEARCH_FUNCTIONS
+#	define INCLUDE_QUEUE
+#	define INCLUDE_STACK
+#	define INCLUDE_SEARCH_FUNCTIONS
 #endif
 #if defined INCLUDE_SEARCH_FUNCTIONS && !defined LISTTYPE_EQUAL
 //LISTTYPE_EQUAL() must be defined manually by the programer if LISTTYPE is some sort of struct, as direct equivalence is likely not supported by the compiler
-	#define LISTTYPE_EQUAL(a,b) a==b
+#	define LISTTYPE_EQUAL(a,b) a==b
 #endif
 #ifdef __cplusplus
 //Although C++ is garbage, I will allow you to use this file as C++ code. You're welcome
