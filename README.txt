@@ -2,7 +2,7 @@ Willis A. Hershey
 
 This file defines two generic list structures, queue_t and stack_t, which are customizable to hold any data type, and are configured at compiletime (hence no list.h).
 
-This file is not intended to be a librabry, it's intended to be recompiled every time with macro definitions based on the programmer's needs in some file, so the easiest way to do that is to copy this file into the /usr/include/ folder and include it with the line #include <list.c>
+This file is not intended to be a library, it's intended to be recompiled every time with macro definitions based on the programmer's needs in some file, so the easiest way to do that is to copy this file into the /usr/include/ folder and include it with the line #include <list.c>
 
 queue_t is a first-in-first-out list structure. Initialize a queue_t with queueInit(queue_t*), add to it with queueAdd(queue_t*,LISTTYPE), and remove from it with queueRemove(queue_t*,LISTTYPE*). Destroy the queue and anything in it with queueDestroy(queue_t*).
 
