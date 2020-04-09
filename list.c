@@ -1,18 +1,22 @@
 //Willis Hershey wrote this whole damned thing and it is broken and beautiful someone please give him a job
-//Last updated February 20th, 2020
+//Last updated April 9th 2020
 
 #include <stdlib.h>
 
+#ifndef LISTTYPE
+#	error User must define LISTTYPE as the type stored in list in order to use the file list.c
+#endif
+
 #ifdef THREAD_SAFE
-//This will likely only compile in THREAD_SAFE mode if you ask your compiler to link the pthread libraries
+//(This will likely only compile in THREAD_SAFE mode if you ask your compiler to link the pthread libraries)
 #	include <semaphore.h>
 //wait will be called before accessing pointers in the list structure and post will be called once mischief is managed in every thread-safe function
-#	define wait(c) sem_wait(c)
-#	define post(c) sem_post(c)
+#	define WAIT(c) sem_wait(c)
+#	define POST(c) sem_post(c)
 #else
 //But outside of THREAD_SAFE mode, these calls do nothing and should be optimized out by the compiler
-#	define wait(c) {}
-#	define post(c) {}
+#	define WAIT(c) {}
+#	define POST(c) {}
 #endif
 #ifndef INVALID_LISTTYPE
 //INVALID_LISTTYPE is a boolean expression, and it defaults to zero, as in 'No. This LISTTYPE is not invalid'. Default value should be optimized out
@@ -28,6 +32,7 @@
 #endif
 #ifndef SIZEOF_LISTNODE_T
 //This allows the user to customize the amount of space their LISTTYPE takes up
+//The 'c' in SIZEOF_LISTNODE_T(c) is the LISTTYPE that you are passing to queueAdd or stackPush, so treat it accordingly
 #	define SIZEOF_LISTNODE_T(c) sizeof(listNode_t)
 #endif
 #ifndef LISTTYPE_ASSIGN
@@ -40,7 +45,7 @@
 #	define INCLUDE_SEARCH_FUNCTIONS
 #endif
 #if defined INCLUDE_SEARCH_FUNCTIONS && !defined LISTTYPE_EQUAL
-//LISTTYPE_EQUAL() must be defined manually by the programer if LISTTYPE is some sort of struct, as direct equivalence is likely not supported by the compiler
+//LISTTYPE_EQUAL() should be defined manually by the programer if LISTTYPE is some sort of struct, as direct equivalence is likely not supported by the compiler
 #	define LISTTYPE_EQUAL(a,b) a==b
 #endif
 #ifdef __cplusplus
@@ -70,14 +75,14 @@ int queueInit(queue_t *queue){ //Initializes queue at given address. Returns LIS
 //If null queue pointer return failure
   if(!queue)
 	return LIST_FAILURE;
-//Set head and tail to null to indicate empty queue
-  queue->head=NULL;
-  queue->tail=NULL;
 #ifdef THREAD_SAFE
 //Initialize mutex semaphore (return failure on initialization failure)
   if(sem_init(&queue->turn,0,1)==-1)
 	return LIST_FAILURE;
 #endif
+///Set head and tail to null to indicate empty queue
+  queue->head=NULL;
+  queue->tail=NULL;
 //And return success
   return LIST_SUCCESS;
 }
@@ -94,7 +99,7 @@ int queueAdd(queue_t *queue,LISTTYPE n){ //Adds valid LISTTYPE to valid queue. r
   hold->next=NULL;
   LISTTYPE_ASSIGN(hold->data,n);
 //If the queue already has a valid tail connect it to the new node and set the new node as the tail, otherwise set head and tail both to this new node
-  wait(&queue->turn);
+  WAIT(&queue->turn);
   if(queue->tail){
 	queue->tail->next=hold;
 	queue->tail=hold;
@@ -102,7 +107,7 @@ int queueAdd(queue_t *queue,LISTTYPE n){ //Adds valid LISTTYPE to valid queue. r
   else
 	queue->head=queue->tail=hold;
 //Return success
-  post(&queue->turn);
+  POST(&queue->turn);
   return LIST_SUCCESS;
 }
 
@@ -111,9 +116,9 @@ int queueRemove(queue_t *queue,LISTTYPE *put){ //Places LISTTYPE from head of qu
   if(!queue)
 	return LIST_FAILURE;
 //If the queue's head is null it has no values, so we can't remove. Return failure
-  wait(&queue->turn);
+  WAIT(&queue->turn);
   if(!queue->head){
-	post(&queue->turn);
+	POST(&queue->turn);
 	return LIST_FAILURE;
   }
 //If the pointer where we're supposed to put the data is not null, save the value there
@@ -124,7 +129,7 @@ int queueRemove(queue_t *queue,LISTTYPE *put){ //Places LISTTYPE from head of qu
   queue->head=pt->next;
   if(!queue->head)
 	queue->tail=NULL;
-  post(&queue->turn);
+  POST(&queue->turn);
   free(pt);
   return LIST_SUCCESS;
 }
@@ -154,9 +159,9 @@ int queueRemoveValue(queue_t *queue,LISTTYPE value){ //Removes the first instanc
   if(!queue||(INVALID_LISTTYPE(value)))
 	return LIST_FAILURE;
 //If the queue's head is null, it has no values so we can't remove. Return failure
-  wait(&queue->turn);
+  WAIT(&queue->turn);
   if(!queue->head){
-	post(&queue->turn);
+	POST(&queue->turn);
 	return LIST_FAILURE;
   }
 //If the head node's value matches, point it to the next node. If the next node is null, set tail to null too. Free memory, and return success
@@ -165,13 +170,13 @@ int queueRemoveValue(queue_t *queue,LISTTYPE value){ //Removes the first instanc
 	queue->head=pt->next;
 	if(!pt->next)
 		queue->tail=NULL;
-	post(&queue->turn);
+	POST(&queue->turn);
 	free(pt);
 	return LIST_SUCCESS;
   }
 //If the first node in the queue is also the last, then we've already checked it and it didn't match, so return failure
   if(!pt->next){
-	post(&queue->turn);
+	POST(&queue->turn);
 	return LIST_FAILURE;
   }
 //For every node in the queue that is not the head or tail, if it matches, point the previous node to the next node, free the memory, and return success
@@ -179,7 +184,7 @@ int queueRemoveValue(queue_t *queue,LISTTYPE value){ //Removes the first instanc
   for(pt=pt->next;pt!=queue->tail;pt=pt->next){
 	if(LISTTYPE_EQUAL(pt->data,value)){
 		run->next=pt->next;
-		post(&queue->turn);
+		POST(&queue->turn);
 		free(pt);
 		return LIST_SUCCESS;
 	}
@@ -189,12 +194,12 @@ int queueRemoveValue(queue_t *queue,LISTTYPE value){ //Removes the first instanc
   if(LISTTYPE_EQUAL(pt->data,value)){
 	queue->tail=run;
 	run->next=NULL;
-	post(&queue->turn);
+	POST(&queue->turn);
 	free(pt);
 	return LIST_SUCCESS;
   }
 //Otherwise the value is not in the queue. Return failure
-  post(&queue->turn);
+  POST(&queue->turn);
   return LIST_FAILURE;
 }
 
@@ -204,9 +209,9 @@ int queueRemoveAll(queue_t *queue,LISTTYPE value){ //Removes all instances of so
   if(!queue||(INVALID_LISTTYPE(value)))
 	return out;
 //If the head of the queue is null, then it has no values and we can't remove. Return zero
-  wait(&queue->turn);
+  WAIT(&queue->turn);
   if(!queue->head){
-	post(&queue->turn);
+	POST(&queue->turn);
 	return out;
   }
 //For every consecutive matching node beginning at the head, free it and increment the output. Set the head to the first non-matching node.
@@ -220,12 +225,12 @@ int queueRemoveAll(queue_t *queue,LISTTYPE value){ //Removes all instances of so
 //If every node in the queue matched, set tail also to null, and return the number of nodes removed
   if(!pt){
 	queue->tail=NULL;
-	post(&queue->turn);
+	POST(&queue->turn);
 	return out;
   }
 //If the new head is the last node (which tail is already pointing to), return the number of nodes removed
   if(!pt->next){
-	post(&queue->turn);
+	POST(&queue->turn);
 	return out;
   }
 //For each remaining node that is not the tail, if it matches, point the previous node to the next one, free the memory, and increment the output
@@ -250,7 +255,7 @@ int queueRemoveAll(queue_t *queue,LISTTYPE value){ //Removes all instances of so
 	queue->tail=last;
 	last->next=NULL;
   }
-  post(&queue->turn);
+  POST(&queue->turn);
   return out;
 }
 
@@ -292,10 +297,10 @@ int stackPush(stack_t *stack,LISTTYPE n){ //Pushes valid LISTTYPE onto valid sta
   return LIST_FAILURE;
 //Place the value in the new node, point the new node at the old top, point the top to the new node, and return success
   LISTTYPE_ASSIGN(hold->data,n);
-  wait(&stack->turn);
+  WAIT(&stack->turn);
   hold->next=stack->top;
   stack->top=hold;
-  post(&stack->turn);
+  POST(&stack->turn);
   return LIST_SUCCESS;
 }
 
@@ -304,10 +309,10 @@ int stackPop(stack_t *stack,LISTTYPE *put){ //Pops LISTTYPE from top of the stac
   if(!stack)
 	return LIST_FAILURE;
 //(This only does something in THREAD_SAFE mode. See the macro definition of wait(c))
-  wait(&stack->turn); 
+  WAIT(&stack->turn); 
 //If the stack's top in NULL, it is empty, so we can't pop. Return failure.
   if(!stack->top){
-	post(&stack->turn);
+	POST(&stack->turn);
 	return LIST_FAILURE;
   }
 //If the pointer where we're supposed to pop the data is not NULL, put the data there
@@ -316,7 +321,7 @@ int stackPop(stack_t *stack,LISTTYPE *put){ //Pops LISTTYPE from top of the stac
 //Set the new top of the stack, free the data associated with the old top, and return success
   listNode_t *pt=stack->top;
   stack->top=pt->next;
-  post(&stack->turn);
+  POST(&stack->turn);
   free(pt);
   return LIST_SUCCESS;
 }
@@ -345,16 +350,16 @@ int stackRemoveValue(stack_t *stack,LISTTYPE value){ //Removes the first instanc
   if(!stack||(INVALID_LISTTYPE(value)))
 	return LIST_FAILURE;
 //If the top is null, the stack has no elements so we can't remove. Return failure
-  wait(&stack->turn);
+  WAIT(&stack->turn);
   if(!stack->top){
-	post(&stack->turn);
+	POST(&stack->turn);
 	return LIST_FAILURE;
   }
 //If the value at the top of the stack matches, set the top to the next node, free memory for old top, and return success
   listNode_t *pt=stack->top;
   if(LISTTYPE_EQUAL(pt->data,value)){
 	stack->top=pt->next;
-	post(&stack->turn);
+	POST(&stack->turn);
 	free(pt);
 	return LIST_SUCCESS;
   }
@@ -363,14 +368,14 @@ int stackRemoveValue(stack_t *stack,LISTTYPE value){ //Removes the first instanc
   for(pt=pt->next;pt;pt=pt->next){
 	if(LISTTYPE_EQUAL(pt->data,value)){
 		run->next=pt->next;
-		post(&stack->turn);
+		POST(&stack->turn);
 		free(pt);
 		return LIST_SUCCESS;
 	}
 	run=pt;
   }
 //If value is not found in the stack return failure
-  post(&stack->turn);
+  POST(&stack->turn);
   return LIST_FAILURE;
 }
 
@@ -380,9 +385,9 @@ int stackRemoveAll(stack_t *stack,LISTTYPE value){ //Removes all instances of so
   if(!stack||(INVALID_LISTTYPE(value)))
 	return out;
 //If top of stack is null, it has no nodes. Return zero
-  wait(&stack->turn);
+  WAIT(&stack->turn);
   if(!stack->top){
-	post(&stack->turn);
+	POST(&stack->turn);
 	return out;
   }
 //For each consecutive matching value beginning at the top, free it and increment the output, then point top to the first non-matching node 
@@ -395,7 +400,7 @@ int stackRemoveAll(stack_t *stack,LISTTYPE value){ //Removes all instances of so
   stack->top=pt;
 //If every value in the stack matched and the top is now null, return the number of elements removed
   if(!pt){
-	post(&stack->turn);
+	POST(&stack->turn);
 	return out;
   }
 //For each remaining node in the stack, if it matches, point the node before to the node after, free memory, and increment output
@@ -414,15 +419,23 @@ int stackRemoveAll(stack_t *stack,LISTTYPE value){ //Removes all instances of so
 		pt=pt->next;
 	}
 //When we run out of nodes, return the number removed
-  post(&stack->turn);
+  POST(&stack->turn);
   return out;
 }
 
 #endif
 #endif
 
-#undef wait
-#undef post
+#undef WAIT
+#undef POST
+#undef LISTTYPE
+#undef INVALID_LISTTYPE
+#undef SIZEOF_LISTNODE_T
+#undef LISTTYPE_ASSIGN
+#undef INCLUDE_QUEUE
+#undef INCLUDE_STACK
+#undef INCLUDE_SEARCH_FUNCTIONS
+#undef LISTTYPE_EQUAL
 
 #ifdef __cplusplus
 }
